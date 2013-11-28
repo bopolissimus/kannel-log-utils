@@ -13,6 +13,8 @@
   ' url: 'http://192.168.250.163:8084/usagealerts/mo?smsc=MAS&to=172&from=0276839900&message=stop' reply: 200 '<< successful >>'
 
   So we walk through the files finding message blocks, then smash the message blocks into one line and extract the date, to and from.
+
+  currently output is just to stdout. we ARE now using fputcsv though, so can now output the text message (fputcsv avoids escaping headaches)
 */
 
   array_shift($argv);
@@ -28,6 +30,7 @@
     $fn=$a[0];
 
     $in=fopen($fn,"r");
+    $out=fopen("php://stdout","a");
 
     $curr="";
     $first=true;
@@ -43,9 +46,12 @@
       $line=str_replace("\r"," ",$line);
 
       if(is_start($line) || feof($in)) {
-        $summary=extract_summary($curr);
-        print("$summary\n");
-        $ctr++;
+
+        if(!empty($curr)) {
+          $summary=extract_summary($curr);
+          fputcsv($out, $summary);
+          $ctr++;
+        }
 
         $curr = $line;
       } else {
@@ -68,13 +74,13 @@
     if(preg_match("/(.*) SMS HTTP-request.*sender:([0-9]+).*url:.*to=([0-9]+)/",$curr, $arr)) {
 
       list($all,$dt, $sender, $to) = $arr;
-      return "MO,$dt, $to, $sender";
+      return array("MO",$dt, $to, $sender,$all);
     } else if (preg_match("/(.*) send-SMS request added.*sender:.*:([0-9]+).*target:([0-9]+)/",$curr, $arr)) {
       list($all, $dt, $sender, $to) = $arr;
-      return "MT,$dt, $sender, $to";
+      return array("MT",$dt,$sender,$to,$all);
     }
 
-    return "UNKNOWN: $curr";
+    return array("UNKNOWN","","","","$curr");
 
   }
 
