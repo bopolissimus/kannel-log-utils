@@ -12,6 +12,19 @@
  
   define("DEBUG",false);
 
+  // set true if you want to keep "PDUs" that have no type_name (they're
+  // mostly virtual PDUs created by buntangle.
+  define("KEEP_NO_TYPE",false);
+
+  if(file_exists("exclude_pdu.php")) {
+    include_once "exclude_pdu.php";
+  } else {
+    // if you want to define your own exclude list, create
+    // exclude_pdu.php and define EXCLUDE_PDU_LIST as a comma
+    // separated string of pdus to exclude
+    define("EXCLUDE_PDU_LIST","");
+    }
+
   if(!isset($argv[1])) {
     die("Missing bearerbox.log\n");
     
@@ -73,6 +86,20 @@
     ksort($pdus);
 
     foreach($pdus as $k=>$arr) {
+
+      $type=get_pdu_type($arr);
+      if(!is_string($type)) {
+        $type="no_type";
+      }
+
+      if(strstr(EXCLUDE_PDU_LIST, $type)) {
+        continue;
+      }
+
+      if($type=="no_type" && !KEEP_NO_TYPE) {
+        continue;
+      }
+
       // no lead/trail NL if single line
       if(count($arr)> 1) {
         print("\n");
@@ -159,7 +186,7 @@
       }
       $pdu_per_k[$k]=$pdu_arr;
     }
-  
+
     return $all_pdus;
   }
 
@@ -199,7 +226,6 @@
 
   }
 
-
   function get_pdu_type($arr) {
     foreach($arr as $line) {
       $pcs = explode(":", $line);
@@ -231,17 +257,6 @@
     if(DEBUG) {
       print("$line\n");
     }
-  }
-
-  function print_pdu($pdu_arr) {
-
-    print("\n");
-
-    foreach($pdu_arr as $v) {
-      print("$v\n");
-      }
-
-    print("\n");
   }
 
 ?>
