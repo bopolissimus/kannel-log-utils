@@ -9,7 +9,7 @@ LOGPAT='*.log'
 
 # set BASE to the directory above where your bearerbox logs are.
 # empty by default.  if you don't set it this script will fail.
-BASE=/home/tiger/Projects-tiger/SMSC-Upgrade-WR233545
+BASE=
 
 # set this to the directory under BASE where the raw logs are
 SRC=logs
