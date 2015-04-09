@@ -244,9 +244,10 @@
   function is_pdu_start($line) {
     $re="/.* SMPP PDU (0x){0,1}[a-f0-9]+ dump:/";
 
+    $re="/.*SMPP[^:]+:.*(Sending|Got).*:/";
+
     return preg_match($re, $line);
   }
-
 
   function is_pdu_end($line) {
     $re="/(.*) SMPP PDU dump ends./";
