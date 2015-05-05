@@ -12,10 +12,10 @@ LOGPAT='*.log'
 BASE=
 
 # set this to the directory under BASE where the raw logs are
-SRC=logs
+SRC=
 
 # and this is where the clean logs will go.
-DEST=clean-logs
+DEST=
 
 for s in `find ${BASE}/${SRC} -name ${LOGPAT}`
 do

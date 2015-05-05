@@ -45,12 +45,88 @@
     print "           path to the bearerbox is required\n";
   }
 
-  load_pdus($filename, $pdu_line_debug);
+  print("\n");
+  clean_pdus($filename);
 
-  function load_pdus($filename, $pdu_line_debug) {
-    // assoc array key is the $key from the log entry.  
-    // entries are assoc arrays whose key is line number and value is the whole log line itself.
-    $per_k=array();
+  /**
+    get all the lines, and then, all the starts.
+    for each start, go to where it is in the all lines array and
+    walk forward until we see its end, accumulating lines in this
+    pdu.  
+
+    when we see its end, if this is a type we want to keep, print
+    it out.  otherwise, skip it.  then go to the next pdu start
+    and do the same thing.
+  */
+  function clean_pdus ($filename) {
+
+    $all_lines = get_line_array($filename);
+    $all_start = get_all_pdu_starts($all_lines);
+
+    foreach( $all_start as $lno=>$k ) {
+      $pdu = array();
+
+      while(true) {
+        $line = $all_lines[$lno];
+        $start_entries = $all_lines[$lno];
+        list($whole,$dt, $tm, $xx, $key, $log_msg) = $start_entries;
+
+        if($key == $k) {
+          array_push($pdu, $whole);
+
+          if(is_pdu_end($whole)) {
+            $type=get_pdu_type($pdu);
+
+            if(!is_string($type)) {
+              $type="no_type";
+            }
+
+            if(strstr(EXCLUDE_PDU_LIST, $type)) {
+              break;
+            }
+
+            if($type=="no_type" && !KEEP_NO_TYPE) {
+              break;
+            }
+
+            foreach($pdu as $line) {
+              print("$line\n");
+            }
+
+            if(count($pdu) > 0) {
+              print("\n\n");
+            }
+
+            break;
+          }
+        }
+
+        $lno++;
+      }
+    }
+  }
+
+  // return an array.  the key is the line number of the start.  the value is the key
+  // of the start, for faster matching of following lines.
+  function get_all_pdu_starts($all_lines) {
+    $ret = array();
+    foreach($all_lines as $lno => $entries) {
+      list($whole,$dt, $tm, $xx, $key, $log_msg) = $entries;
+
+      if(is_pdu_start($whole)) {
+        $ret[$lno] = $key;
+      }
+    }
+
+    return $ret;
+  }
+
+  /**
+    get all lines in the file which are log lines we're interested in.
+    WHINE about lines we don't care about.
+  **/
+  function get_line_array($filename) {
+    $ret = array();
 
     $in=fopen($filename,"r");
     $lno=0;
@@ -62,66 +138,19 @@
         continue;
       }
 
-      // we also need current_per_k pdu being built.
-
       $entries = get_log_entries($line);
+
       if(count($entries) == 6) {
         list($whole,$dt, $tm, $xx, $key, $log_msg) = $entries;
 
-        if(!array_key_exists($key, $per_k)) {
-          $per_k[$key] = array();
-        }
-
-        $per_k[$key][$lno]=$whole;
-
-        //print ("$dt : $tm : $xx : $key : $log_msg\n");
+        $ret[$lno]=$entries;
       } else {
         print("NO MATCH: $line\n");
       }
     }
 
-    // still organized by key
-    $pdus=to_pdu($per_k);
-
-    ksort($pdus);
-
-    foreach($pdus as $k=>$arr) {
-
-      $type=get_pdu_type($arr);
-      if(!is_string($type)) {
-        $type="no_type";
-      }
-
-      if(strstr(EXCLUDE_PDU_LIST, $type)) {
-        continue;
-      }
-
-      if($type=="no_type" && !KEEP_NO_TYPE) {
-        continue;
-      }
-
-      // no lead/trail NL if single line
-      if(count($arr)> 1) {
-        print("\n");
-      }
-
-      $first=true;
-      foreach($arr as $line) {
-        if($first && $pdu_line_debug) {
-          print ("$k : $line\n");
-          $first=false;
-        } else {
-          print("$line\n");
-        }
-      }
-
-      if(count($arr)> 1) {
-        print("\n");
-      }
-    }
-      
+    return $ret;
   }
-
 
   /*
     grab the pieces of the log line.
@@ -135,95 +164,6 @@
     } else {
       return array();
     }
-  }
-
-  /*
-    for each array entry (per key) in the input array, read through
-    the array and output an array of PDUs.  "PDUs" are just arrays.
-    single-line (non-pdu) log entries will be coerced into single
-    entry "PDU" arrays.
-  
-    @param $per_k -- the per_k array
-    @param $use_last -- which line number to use for ordering.
-       if true, we use the last line number in the pdu, else we
-       use the first.  i.e., determine if interleaved or nested
-       entries go before or after the earlier/enclosing PDU.
-
-       by default interleaved or nested entries go AFTER.
-  */
-  function to_pdu($per_k,$use_last=true) {
-    $all_pdus=array();
-    $pdu_per_k=array();
-
-    foreach($per_k as $k=>$arr) {
-      $pdu_arr=array();
-      $current=array();
-
-      foreach($arr as $lno=>$line) {
-        if(is_pdu_start($line)) {
-          $start=$lno;
-          array_push($current, $line);
-          continue;
-        }
-
-        if(is_pdu_end($line)) {
-          array_push($current,$line);
-          $pdu_arr[$start]=$current;
-          $current=array();
-
-          insert_pdu_all($pdu_arr[$start],$start,$all_pdus);
-          continue;
-        }
-
-        // part of current pdu
-        if(count($current) > 0){
-          array_push($current, $line);
-          continue;
-        } else {
-          $pdu_arr[$lno]=array($line);
-          insert_pdu_all($pdu_arr[$lno], $lno, $all_pdus);
-        }
-      }
-      $pdu_per_k[$k]=$pdu_arr;
-    }
-
-    return $all_pdus;
-  }
-
-  function insert_pdu_all($arr, $lno, &$all_pdus) {
-    if(array_key_exists($lno, $all_pdus)) {
-      print("ERROR: $lno already exists in all_pdus\n");
-      print_r($arr);
-      die;
-    }
-
-    $all_pdus[$lno]=$arr;
-  }
-
-  /*
-    a PDU is just an assoc array with key being the line number.
-    this function takes a "PDU" array and returns the line number
-    that identifies this PDU (first or last).
-
-    NOTE: there's an issue with nested PDUs if use_last, inner 
-    goes before outer.  if use_first inner goes after outer.
-
-    When this fn is called we don't know if we were inner or outer,
-    thus the confusion.  I think it doesn't matter though, whether
-    the inner comes before or after the outer.
-  */
-  function get_pdu_lno($arr, $use_last) {
-    $keys=array_keys(arr);
-
-    // paranoia.  should't be necessary.
-    asort($keys);
-
-    if($use_last) {
-      return $keys[count($keys)-1];
-    } else {
-      return $keys[0];
-    }
-
   }
 
   function get_pdu_type($arr) {
