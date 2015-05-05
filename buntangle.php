@@ -22,6 +22,8 @@
   // mostly virtual PDUs created by buntangle.
   define("KEEP_NO_TYPE",false);
 
+  include_once "buntangle_lib.php";
+
   if(file_exists("exclude_pdu.php")) {
     include_once "exclude_pdu.php";
   } else {
@@ -79,6 +81,10 @@
 
         if($key == $k) {
           array_push($pdu, $whole);
+
+          if(has_exclude_text($whole)) {
+            break;
+          }
 
           if(is_pdu_end($whole)) {
             $type=get_pdu_type($pdu);
@@ -163,64 +169,6 @@
     }
 
     return $ret;
-  }
-
-  /*
-    grab the pieces of the log line.
-  */
-  function get_log_entries($line) {
-    $re="/^([-0-9]+) ([:0-9]+) \[([0-9]+)\] \[([0-9])+\] (.*)$/";
-    $matches=array();
-
-    if(1==preg_match($re, $line, $matches)) {
-      return $matches;
-    } else {
-      return array();
-    }
-  }
-
-  function get_pdu_type($arr) {
-    foreach($arr as $line) {
-      $pcs = explode(":", $line);
-      $len=count($pcs);
-      $fld = $pcs[$len-2];
-      $fld=trim($fld);
-
-      $val=$pcs[$len -1];
-      $val=trim($val);
-
-      if($fld == 'type_name')
-        return $val;
-    }
-  }
-
-  function is_pdu_start($line) {
-    $re="/.* SMPP PDU (0x){0,1}[a-f0-9]+ dump:/";
-
-    $re="/.*SMPP[^:]+:.*(Sending|Got).*:/";
-
-    return preg_match($re, $line);
-  }
-
-  function is_pdu_end($line) {
-    $re="/(.*) SMPP PDU dump ends./";
-    return preg_match($re, $line);
-  }
-
-  function is_sql_line($line) {
-    if(SQL_SINGLE_PDU) {
-      $re="/.*DEBUG: sql: (INSERT|DELETE)/";
-
-     return preg_match($re, $line);
-    } else {
-      return false;
-    }
-  }
-
-  function debug($line) {
-    if(DEBUG) {
-      print("$line\n");
-    }
   }
 
 ?>
