@@ -10,7 +10,13 @@
     with more than one element is a proper PDU.
   */
  
-  define("DEBUG",false);
+  define("DEBUG", false);
+
+  /**
+    do we want to highlight DLR sql statements?  Only inserts and deletes
+    handled.
+  */
+  define("SQL_SINGLE_PDU", false);
 
   // set true if you want to keep "PDUs" that have no type_name (they're
   // mostly virtual PDUs created by buntangle.
@@ -98,6 +104,13 @@
             }
 
             break;
+          } else {
+
+            // single SQL lines are virtual PDUs
+            if(is_sql_line($whole)) {
+              print ("$whole\n\n\n");
+              break;
+            }
           }
         }
 
@@ -113,7 +126,7 @@
     foreach($all_lines as $lno => $entries) {
       list($whole,$dt, $tm, $xx, $key, $log_msg) = $entries;
 
-      if(is_pdu_start($whole)) {
+      if(is_pdu_start($whole) || is_sql_line($whole)) {
         $ret[$lno] = $key;
       }
     }
@@ -192,6 +205,16 @@
   function is_pdu_end($line) {
     $re="/(.*) SMPP PDU dump ends./";
     return preg_match($re, $line);
+  }
+
+  function is_sql_line($line) {
+    if(SQL_SINGLE_PDU) {
+      $re="/.*DEBUG: sql: (INSERT|DELETE)/";
+
+     return preg_match($re, $line);
+    } else {
+      return false;
+    }
   }
 
   function debug($line) {
