@@ -9,16 +9,17 @@ LOGPAT='*.log'
 
 # set BASE to the directory above where your bearerbox logs are.
 # empty by default.  if you don't set it this script will fail.
-BASE=
+BASE=.
 
 # set this to the directory under BASE where the raw logs are
-SRC=
+SRC=logs
 
 # and this is where the clean logs will go.
-DEST=
+DEST=logs2
 
 for s in `find ${BASE}/${SRC} -name ${LOGPAT}`
 do
+  echo $s
   d=`echo $s | sed "s/\/${SRC}\//\/${DEST}\//"`
 
   dd=`dirname $d`

@@ -86,6 +86,9 @@
     die();
   }
 
+  /** reads a bearerbox file that's already
+      been passed through buntangle so it's much
+      cleaner.  returns pdus one at a time. **/
   function load_pdu($in) {
     $pdu=array();
     $line="";
@@ -110,5 +113,156 @@
   
     return $pdu;
   }
+
+  /**
+    get a field value the naive way.  
+    type_name: deliver_sm returns delivery_sm
+    command_id: 5 = 0x00000005 returns 5
+    receipted_message_id: "17391000167162" 
+       returns 17391000167162 as a string without 
+       the quotes inside the string.
+    data: ... returns the concatenation of all the
+       *text* (we ignore the hex).
+
+    for future, timestamps (schedule_delivery_time,
+    validity_period) will be converted to UTC.
+    For now though, they're just returned as is.
+
+    if no regexp matches, returns false.
+
+  **/
+  function get_field_value($line, $field) {
+    $re1="/.*$field: ([0-9]+) = [0-9xabcdef]+$/";
+    $re2="/.*$field: ".'"([^'.'"]+)"$/';
+    $re3="/.*$field: ([^ ]+)$/";
+    $re4="/.*data:(([0-9a-f ]+ )+) .*/";
+
+    $matches=array();
+    $rea=array($re1, $re2, $re3);
+
+    foreach($rea as $re) {
+      if(preg_match($re, $line, $matches)) {
+        return $matches[1];
+      } 
+    }
+
+    if($field=='data') {
+      $ret="";
+      if(preg_match($re4, $line, $matches)) {
+        $hex=trim($matches[1]);
+        $hexa=split(' ',$hex);
+      
+        foreach($hexa as $chx) {
+          $decimal=hexdec($chx);
+
+          if($chx!='00') {
+            $a=chr($decimal);
+            $ret.=$a;
+          }
+        }
+      } 
+
+      return $ret;
+    } 
+
+    return false;
+  }
+
+  /**
+    get the value of a field from a pdu.  returns
+    false if no such field.
+  **/
+  function get_pdu_field($pdu, $field) {
+    $data="";
+    foreach($pdu as $line) {
+      $v = get_field_value($line, $field);
+      if($v && $field!='data') {
+        return $v;
+      } else {
+        $data.=$v;
+      }
+    }
+
+    return $data;
+  }
+
+  /**
+    $fielda is a comma delimited string of fieldnames. 
+    @return an array of the given fields.  if a field
+      specified does not exist false is returned and
+      an error message printed out to stdout.
+  **/
+  function get_pdu_fields($pdu, $field_list) {
+    $fielda=explode(',', $field_list);
+    $ret=array();
+    foreach($fielda as $f) {
+      $f=trim($f);
+
+      if(strstr($f,'=')) {
+        list($from,$to)=explode('=', $f);
+      } else {
+        $from=$f;
+        $to=$f;
+      }
+
+      $ret[$to]=get_pdu_field($pdu, $from);
+    }
+
+    return $ret;
+  }
+
+  function get_pdu_tstamp($pdu) {
+    $keys = array_keys($pdu);
+    $key = $keys[0];
+
+    $row=$pdu[$key];
+    $tstamp=strstr($row,'[',true);
+    $tstamp=trim($tstamp);
+    return $tstamp;
+  }
+
+  /**
+    return an array with submit_sm data or false if not
+    a submit_sm.
+  **/
+  function get_submit_sm($pdu) {
+    $type=get_pdu_type($pdu);
+
+    if($type!= 'submit_sm') {
+      return false;
+    } else {
+      $ret=get_pdu_fields($pdu, "type_name,command_status,source_addr=from,destination_addr=to,sequence_number,data=msg,schedule_delivery_time,validity_period,registered_delivery");
+
+      $ret['tstamp']=get_pdu_tstamp($pdu);
+
+    return $ret;
+    }
+  }
+
+  /**
+    return an array with relevant submit_sm_resp data
+    or false if not a submit_sm_resp
+  **/
+  function get_submit_sm_resp($pdu) {
+    $ret=get_pdu_fields($pdu, "type_name,command_status,sequence_number,message_id");
+
+    $ret['tstamp']=get_pdu_tstamp($pdu);
+
+    return $ret;
+  }
+
+  function get_deliver_sm($pdu) {
+    $ret=get_pdu_fields($pdu, "type_name,command_status,source_addr=from,destination_addr=to,sequence_number,data=msg,schedule_delivery_time,validity_period,receipted_message_id");
+    
+    $ret['tstamp']=get_pdu_tstamp($pdu);
+    return $ret;
+  }
+
+  function get_deliver_sm_resp($pdu) {
+    $ret=get_pdu_fields($pdu, "type_name,command_status,sequence_number,message_id");
+
+    return $ret;
+  }
+
 
 ?>

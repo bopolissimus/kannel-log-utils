@@ -16,7 +16,7 @@
     do we want to highlight DLR sql statements?  Only inserts and deletes
     handled.
   */
-  define("SQL_SINGLE_PDU", false);
+  define("SQL_SINGLE_PDU", true);
 
   // set true if you want to keep "PDUs" that have no type_name (they're
   // mostly virtual PDUs created by buntangle.
@@ -114,7 +114,31 @@
 
             // single SQL lines are virtual PDUs
             if(is_sql_line($whole)) {
-              print ("$whole\n\n\n");
+              // extract the tstamp from it so we do it only once.
+              $prefix=strstr($whole, "DEBUG:", true)."DEBUG:";
+
+              $tstamp="";
+              if(strstr($whole, 'DELETE FROM')) {
+                $tstamp=strstr($whole,'tstamp"=');
+                list(,$tstamp,)=explode("'",$tstamp);
+                $type="dlr_send";
+              }
+
+              if(strstr($whole, "INSERT INTO")) {
+                $re="/VALUES \('[^']+', '([0-9]+)',/";
+                $matches=array();
+
+                if(preg_match($re, $whole, $matches)) {
+                  $tstamp=$matches[1];
+                }
+
+                $type="dlr_save";
+              }
+
+              print ("$whole\n");
+              print("$prefix type_name: $type\n");
+              print("$prefix receipted_message_id: $tstamp\n\n\n");
+
               break;
             }
           }
