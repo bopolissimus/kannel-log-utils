@@ -16,7 +16,7 @@
     do we want to highlight DLR sql statements?  Only inserts and deletes
     handled.
   */
-  define("SQL_SINGLE_PDU", true);
+  define("DLR_VIRTUAL_PDU", true);
 
   // set true if you want to keep "PDUs" that have no type_name (they're
   // mostly virtual PDUs created by buntangle.
@@ -112,35 +112,20 @@
             break;
           } else {
 
-            // single SQL lines are virtual PDUs
-            if(is_sql_line($whole)) {
-              // extract the tstamp from it so we do it only once.
-              $prefix=strstr($whole, "DEBUG:", true)."DEBUG:";
+            // DLR lines are virtual PDUs
+            $dlra = get_dlr_info($whole);
 
-              $tstamp="";
-              if(strstr($whole, 'DELETE FROM')) {
-                $tstamp=strstr($whole,'tstamp"=');
-                list(,$tstamp,)=explode("'",$tstamp);
-                $type="dlr_send";
-              }
+            $prefix=strstr($whole, "DEBUG:", true)."DEBUG:";
 
-              if(strstr($whole, "INSERT INTO")) {
-                $re="/VALUES \('[^']+', '([0-9]+)',/";
-                $matches=array();
-
-                if(preg_match($re, $whole, $matches)) {
-                  $tstamp=$matches[1];
-                }
-
-                $type="dlr_save";
-              }
+            if(is_array($dlra)) {
+              list($type, $tstamp) = $dlra;
 
               print ("$whole\n");
               print("$prefix type_name: $type\n");
               print("$prefix receipted_message_id: $tstamp\n\n\n");
-
               break;
             }
+
           }
         }
 
@@ -156,7 +141,10 @@
     foreach($all_lines as $lno => $entries) {
       list($whole,$dt, $tm, $xx, $key, $log_msg) = $entries;
 
-      if(is_pdu_start($whole) || is_sql_line($whole)) {
+      $dlri = get_dlr_info($whole);
+      $isdlr = is_array($dlri) && 2==count($dlri);
+
+      if(is_pdu_start($whole) || $isdlr ) {
         $ret[$lno] = $key;
       }
     }

@@ -42,15 +42,27 @@
     return preg_match($re, $line);
   }
 
-  function is_sql_line($line) {
-    if(SQL_SINGLE_PDU) {
-      $re="/.*DEBUG: sql: (INSERT|DELETE)/";
+  /**
+    returns an array of {0=>type, 1=>tstamp} or false if not a DLR 
+  **/
+  function get_dlr_info($line) {
+    $re="/.*DEBUG: DLR\[[a-zA-Z0-9]+\]: (Adding DLR|Looking for DLR).*ts=([0-9]+)/";
 
-     return preg_match($re, $line);
+    $matches=array();
+    if(preg_match($re, $line, $matches)){
+
+      if($matches[1]=="Adding DLR") {
+        $type='dlr_save';
+      } else {
+        $type='dlr_send';
+      }
+
+      return array($type, $matches[2]);
     } else {
       return false;
     }
   }
+
 
   function has_exclude_text($line) {
     return false;
@@ -135,7 +147,11 @@
     $re1="/.*$field: ([0-9]+) = [0-9xabcdef]+$/";
     $re2="/.*$field: ".'"([^'.'"]+)"$/';
     $re3="/.*$field: ([^ ]+)$/";
+
+    // data short messages also have short_message: but with
+    // no text after the ": ".  so, as intended, this won't catch those.
     $re4="/.*data:(([0-9a-f ]+ )+) .*/";
+    $re5='/.*short_message:[^"]+"([^"]+)"$/';
 
     $matches=array();
     $rea=array($re1, $re2, $re3);
@@ -146,10 +162,16 @@
       } 
     }
 
+    // the short message is either in a data: or
+    // short_message: field.  if short_message, it's
+    // only one line and we just use the text.  if data,
+    // it's hex, we decode it.
     if($field=='data') {
       $ret="";
+
+      $matches=array();
       if(preg_match($re4, $line, $matches)) {
-        $hex=trim($matches[1]);
+        $hex=trim($matches[2]);
         $hexa=split(' ',$hex);
       
         foreach($hexa as $chx) {
@@ -160,11 +182,14 @@
             $ret.=$a;
           }
         }
-      } 
 
-      return $ret;
-    } 
-
+        return $ret;
+      } else {
+        if(preg_match($re5, $line, $matches)) {
+          return $matches[1];
+        }
+      }
+  }
     return false;
   }
 
