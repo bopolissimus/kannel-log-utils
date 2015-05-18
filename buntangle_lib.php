@@ -174,13 +174,17 @@
         $hex=trim($matches[2]);
         $hexa=split(' ',$hex);
       
+        // best effort convert to ascii.  we don't actually try to
+        // detect or convert encoded text here.  just filter and
+        // replace non isprint.
         foreach($hexa as $chx) {
           $decimal=hexdec($chx);
+          if($decimal >=127 || $decimal<31 ) {
+            $decimal=42;
+          }
 
-          if($chx!='00') {
             $a=chr($decimal);
             $ret.=$a;
-          }
         }
 
         return $ret;
@@ -204,6 +208,7 @@
       if($v && $field!='data') {
         return $v;
       } else {
+        $v=addslashes($v);
         $data.=$v;
       }
     }
