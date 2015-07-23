@@ -10,28 +10,34 @@
     with more than one element is a proper PDU.
   */
  
-  define("DEBUG", false);
-
-  /**
-    do we want to highlight DLR sql statements?  Only inserts and deletes
-    handled.
-  */
-  define("DLR_VIRTUAL_PDU", true);
-
-  // set true if you want to keep "PDUs" that have no type_name (they're
-  // mostly virtual PDUs created by buntangle.
-  define("KEEP_NO_TYPE",false);
-
   include_once "buntangle_lib.php";
 
-  if(file_exists("exclude_pdu.php")) {
-    include_once "exclude_pdu.php";
+  if(file_exists("customize.php")) {
+    include_once "customize.php";
   } else {
     // if you want to define your own exclude list, create
     // exclude_pdu.php and define EXCLUDE_PDU_LIST as a comma
     // separated string of pdus to exclude
     define("EXCLUDE_PDU_LIST","");
-    }
+  }
+
+  if(!defined("DEBUG")) {
+    define("DEBUG", false);
+  }
+
+  if(!defined("DLR_VIRTUAL_PDU")) {
+    /**
+      do we want to highlight DLR sql statements?  Only inserts and deletes
+      handled.
+    */
+    define("DLR_VIRTUAL_PDU", true);
+  }
+
+  if(!defined("KEEP_NO_TYPE")) {
+    // set true if you want to keep "PDUs" that have no type_name (they're
+    // mostly virtual PDUs created by buntangle.
+    define("KEEP_NO_TYPE",true);
+  }
 
   if(!isset($argv[1])) {
     die("Missing bearerbox.log\n");
